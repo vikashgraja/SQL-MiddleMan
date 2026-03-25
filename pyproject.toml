@@ -4,4 +4,15 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "django>=6.0.3",
+    "djangorestframework>=3.17.1",
+]
+
+[dependency-groups]
+dev = [
+    "bandit>=1.9.4",
+    "django-debug-toolbar>=6.2.0",
+    "ruff>=0.15.7",
+    "semgrep>=1.156.0",
+]
