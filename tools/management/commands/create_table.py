@@ -17,13 +17,15 @@ class Command(BaseCommand):
         base_path = app
 
         model_path = f"{base_path}/models/{name}.py"
+        serializer_path = f"{base_path}/serializers/{name}_serializer.py"
         service_path = f"{base_path}/services/{name}_service.py"
         api_path = f"{base_path}/api/{name}_api.py"
 
         files = {
             model_path: self.model_template(class_name, name),
+            serializer_path: self.serializer_template(class_name, name),
             service_path: self.service_template(name),
-            api_path: self.api_template(name),
+            api_path: self.api_template(class_name, name),
         }
 
         # Create files
@@ -72,24 +74,55 @@ class {class_name}(models.Model):
 
 """
 
-    def service_template(self, name):
+    def serializer_template(self, class_name, name):
+        return f"""from rest_framework import serializers
+
+class {class_name}Serializer(serializers.Serializer):
+    # TODO: define fields
+    pass
+"""
+
+    def service_template(self, name):               # TODO: Use serializers
         return f"""def insert_{name}(rows, run_id):
     # TODO: implement logic
     pass
 """
 
-    def api_template(self, name):
+    def api_template(self, class_name, name):
         return f"""from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from rest_framework import status
 
-from ..services.{name}_service import insert_{name}
+from ..services.{name}_service import insert_{name}, fetch_{name}
+from ..serializers.{name}_serializer import {class_name}Serializer
 
 
+# -------- INSERT --------
 @api_view(["POST"])
-def insert_{name}(request):
+def insert_{name}_api(request):
+    serializer = {class_name}Serializer(
+        data=request.data.get("rows", []), many=True
+    )
+
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
     insert_{name}(
-        rows=request.data.get("rows", []),
+        rows=serializer.validated_data,
         run_id=request.data.get("run_id")
     )
+
     return Response({{"status": "success"}})
+
+
+# -------- FETCH --------
+@api_view(["GET"])
+def fetch_{name}_api(request):
+    run_id = request.GET.get("run_id")
+
+    data = fetch_{name}(run_id=run_id)
+
+    serializer = {class_name}Serializer(data, many=True)
+
+    return Response(serializer.data)
 """
