@@ -1,0 +1,95 @@
+import os
+from django.core.management.base import BaseCommand
+
+
+class Command(BaseCommand):
+    help = "Create model, service, and api files for a table"
+
+    def add_arguments(self, parser):
+        parser.add_argument("app")
+        parser.add_argument("name")
+
+    def handle(self, *args, **kwargs):
+        app = kwargs["app"]
+        name = kwargs["name"].lower()
+        class_name = "".join(word.capitalize() for word in name.split("_"))
+
+        base_path = app
+
+        model_path = f"{base_path}/models/{name}.py"
+        service_path = f"{base_path}/services/{name}_service.py"
+        api_path = f"{base_path}/api/{name}_api.py"
+
+        files = {
+            model_path: self.model_template(class_name, name),
+            service_path: self.service_template(name),
+            api_path: self.api_template(name),
+        }
+
+        # Create files
+        for path, content in files.items():
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+
+            if not os.path.exists(path):
+                with open(path, "w") as f:
+                    f.write(content)
+                self.stdout.write(self.style.SUCCESS(f"Created {path}"))
+            else:
+                self.stdout.write(self.style.WARNING(f"{path} already exists"))
+
+        self.update_init(app, name)
+
+    def update_init(self, app, name):
+        init_file = f"{app}/models/__init__.py"
+        import_line = f"from .{name} import *\n"
+
+        if not os.path.exists(init_file):
+            with open(init_file, "w") as f:
+                f.write(import_line)
+            self.stdout.write(self.style.SUCCESS(f"Created {init_file}"))
+            return
+
+        with open(init_file, "r") as f:
+            content = f.readlines()
+
+        if import_line not in content:
+            with open(init_file, "a") as f:
+                f.write(import_line)
+            self.stdout.write(self.style.SUCCESS(f"Updated {init_file}"))
+        else:
+            self.stdout.write(self.style.WARNING(f"{init_file} already updated"))
+
+    def model_template(self, class_name, name):
+        return f"""from django.db import models
+
+
+class {class_name}(models.Model):
+    created_at = models.DateTimeField(auto_now_add=True)
+    run_id = models.CharField(max_length=50)
+
+    class Meta:
+        db_table = "{name}"
+
+"""
+
+    def service_template(self, name):
+        return f"""def insert_{name}(rows, run_id):
+    # TODO: implement logic
+    pass
+"""
+
+    def api_template(self, name):
+        return f"""from rest_framework.decorators import api_view
+from rest_framework.response import Response
+
+from ..services.{name}_service import insert_{name}
+
+
+@api_view(["POST"])
+def insert_{name}(request):
+    insert_{name}(
+        rows=request.data.get("rows", []),
+        run_id=request.data.get("run_id")
+    )
+    return Response({{"status": "success"}})
+"""
