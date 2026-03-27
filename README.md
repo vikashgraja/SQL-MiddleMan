@@ -50,11 +50,51 @@ SQL-MiddleMan acts as a **structured data control layer** between:
 
 ------------------------------------------------------------------------
 
-## Create New Table
+## Create New Table (Step-by-Step Implementation)
 
-    python manage.py create_table Ingestion sample_table
+When you need to add a new table to the project, follow these steps to hook it up correctly from end-to-end:
 
-Generates: - model - service - API - serializer
+### 1. Run the Generator
+Use the custom `create_table` management command to scaffold the base files:
+```bash
+uv run manage.py create_table <AppName> <table_name>
+# Example: uv run manage.py create_table Ingestion customer_data
+```
+*(This automatically generates the Model, Serializer, Service, and API stubs)*
+
+### 2. Update the Serializer
+Open `<AppName>/serializers/<table_name>_serializer.py` and define the validation fields that match your intended payload (the incoming `rows`):
+```python
+from rest_framework import serializers
+
+class CustomerDataSerializer(serializers.Serializer):
+    run_id = serializers.CharField(max_length=50, required=False)
+    # Define your specific row fields here
+    customer_name = serializers.CharField()
+```
+
+### 3. Implement the Service Logic
+Open `<AppName>/services/<table_name>_service.py` and define the behavior for storing and retrieving records:
+- **`insert_<name>`**: Iterate over the `rows` to create new database records via your Model.
+- **`fetch_<name>`**: Query the Model (e.g. filtered by `run_id`) and return a list of dictionaries.
+
+### 4. Wire up the URL Routes
+Open `<AppName>/urls.py` and map your new endpoints. Import the API views and route them appropriately:
+```python
+from .api.customer_data_api import insert_customer_data_api, fetch_customer_data_api
+
+urlpatterns += [
+    path("customer_data/insert/", insert_customer_data_api),
+    path("customer_data/fetch/", fetch_customer_data_api),
+]
+```
+
+### 5. Migrate the Database
+Finally, generate and apply migrations to register the new Model in your database schema:
+```bash
+uv run manage.py makemigrations
+uv run manage.py migrate
+```
 
 ------------------------------------------------------------------------
 
@@ -126,3 +166,44 @@ Located in:
 - Pagination
 - Admin‑managed endpoint groups with scoped access tokens for granular API control
 - Monitoring
+
+------------------------------------------------------------------------
+
+## Testing with Sample Tables
+
+Since `create_table` automatically generates the base components (API, serializer, service, and model), testing the components end-to-end requires explicitly defining your logic layers and mapping the generic URL routes.
+
+### 1. Configure the API Key 
+The system relies on a central API Key for authentication via the `APIKeyAuthentication` class. Create a `.env` file in the project directory:
+```env
+API_KEY=testkey123
+```
+
+### 2. Prepare the Database Models
+Run Django's migration commands to formalize the generated tables into your local `db.sqlite3`:
+```bash
+uv run manage.py makemigrations
+uv run manage.py migrate
+```
+
+### 3. Curl Test Examples
+Spin up your local server (`uv run manage.py runserver`). You can then insert and fetch data from the tables using the `Authorization: API-Key <key>` header format.
+
+**Test Ingestion (Insert Data)**:
+```bash
+curl -s -X POST http://127.0.0.1:8000/ingestion/sample_data/insert/ \
+  -H "Authorization: API-Key testkey123" \
+  -H "Content-Type: application/json" \
+  -d '{"run_id": "test_ingestion_1", "rows": [{"example_column": "example_value"}]}'
+```
+
+**Test Ingestion (Fetch Data)**:
+```bash
+curl -s -X GET "http://127.0.0.1:8000/ingestion/sample_data/fetch/?run_id=test_ingestion_1" \
+  -H "Authorization: API-Key testkey123"
+```
+
+**Test Analytics Example**: 
+The endpoints seamlessly mirror the data behavior in the Analytics side using the same URL convention:
+`POST http://127.0.0.1:8000/analytics/sample_result/insert/`
+`GET http://127.0.0.1:8000/analytics/sample_result/fetch/?run_id=test_1`
