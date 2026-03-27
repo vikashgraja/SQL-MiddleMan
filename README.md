@@ -60,7 +60,7 @@ Use the custom `create_table` management command to scaffold the base files:
 uv run manage.py create_table <AppName> <table_name>
 # Example: uv run manage.py create_table Ingestion customer_data
 ```
-*(This automatically generates the Model, Serializer, Service, and API stubs)*
+*(This automatically generates the Model, Serializer, Service, API, and a Test stub in `<AppName>/tests/test_<table_name>.py`)*
 
 ### 2. Update the Serializer
 Open `<AppName>/serializers/<table_name>_serializer.py` and define the validation fields that match your intended payload (the incoming `rows`):

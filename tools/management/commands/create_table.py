@@ -20,12 +20,14 @@ class Command(BaseCommand):
         serializer_path = f"{base_path}/serializers/{name}_serializer.py"
         service_path = f"{base_path}/services/{name}_service.py"
         api_path = f"{base_path}/api/{name}_api.py"
+        test_path = f"{base_path}/tests/test_{name}.py"
 
         files = {
             model_path: self.model_template(class_name, name),
             serializer_path: self.serializer_template(class_name, name),
             service_path: self.service_template(name),
             api_path: self.api_template(class_name, name),
+            test_path: self.test_template(app, name),
         }
 
         # Create files
@@ -86,6 +88,10 @@ class {class_name}Serializer(serializers.Serializer):
         return f"""def insert_{name}(rows, run_id):
     # TODO: implement logic
     pass
+
+def fetch_{name}(run_id=None):
+    # TODO: implement logic
+    return []
 """
 
     def api_template(self, class_name, name):
@@ -125,4 +131,28 @@ def fetch_{name}_api(request):
     serializer = {class_name}Serializer(data, many=True)
 
     return Response(serializer.data)
+"""
+
+    def test_template(self, app, name):
+        return f"""import pytest
+from rest_framework import status
+
+@pytest.mark.django_db
+def test_{name}_insert_and_fetch(auth_client):
+    # 1. Insert Data
+    # Note: Adjust the payload and URL according to your implementation
+    insert_url = f"/{app.lower()}/{name}/insert/"
+    
+    payload = {{
+        "run_id": "test_auto_run",
+        "rows": [{{}}] # Add dummy data matching your serializer
+    }}
+    
+    response = auth_client.post(insert_url, payload, format='json')
+    assert response.status_code == status.HTTP_200_OK
+
+    # 2. Fetch Data
+    fetch_url = f"/{app.lower()}/{name}/fetch/"
+    response = auth_client.get(fetch_url, {{"run_id": "test_auto_run"}})
+    assert response.status_code == status.HTTP_200_OK
 """
