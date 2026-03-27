@@ -16,9 +16,12 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+import os
+
+admin_path = os.environ.get('ADMIN_URL_PATH', 'admin-secret-portal/')
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    path(admin_path, admin.site.urls),
     path('ingestion/', include('Ingestion.urls')),
     path('analytics/', include('Analytics.urls')),
 ]

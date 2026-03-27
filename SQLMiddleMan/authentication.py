@@ -1,4 +1,7 @@
 import os
+import secrets
+import logging
+
 from django.conf import settings
 from rest_framework import authentication
 from rest_framework import exceptions
@@ -35,7 +38,10 @@ class APIKeyAuthentication(authentication.BaseAuthentication):
         if not expected_key:
             raise exceptions.AuthenticationFailed("API Key is not configured on the server.")
 
-        if api_key == expected_key:
+        # Constant-time comparison to prevent timing attacks
+        if secrets.compare_digest(api_key, expected_key):
             return (APIKeyUser(), None)
 
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Failed authentication attempt from {request.META.get('REMOTE_ADDR')}")
         raise exceptions.AuthenticationFailed('Invalid API Key')
